@@ -1,6 +1,6 @@
 # Marco
 
-A Windows desktop companion app for Destiny 2 — built with **Tauri v2 (Rust) + React + TypeScript**.
+A Windows desktop companion app for Destiny 2.
 
 Marco bundles six tools behind one tab bar: an AHK macro manager, a native loadout swapper (no AutoHotkey required), an on-screen weapon/perk overlay with OCR auto-detection, a bulk Bungie.net code redeemer, and DIM / Godroll.tv / D2ArmorPicker docked in as real browser tabs — plus multi-account support so multiple Bungie logins can stay signed in side by side.
 
