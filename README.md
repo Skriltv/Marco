@@ -29,46 +29,6 @@ Marco bundles six tools behind one tab bar: an AHK macro manager, a native loado
 
 ---
 
-## Install
-
-Grab the latest installer from the [Releases](../../releases) page and run it.
-
-## Build from source
-
-```bash
-pnpm install        # once
-pnpm tauri dev      # run with hot reload
-pnpm tauri build    # produce an NSIS installer
-```
-
-The installer will be at `src-tauri/target/release/bundle/nsis/Marco_<version>_x64-setup.exe`.
-
-<details>
-<summary>Packaging with Inno Setup instead</summary>
-
-```bash
-pnpm install
-pnpm tauri build --no-bundle
-cd installer
-ISCC Marco.iss      # requires Inno Setup 6+
-```
-
-Produces `installer/output/Marco_<version>_x64-setup.exe`. Bump `MyAppVersion` in `Marco.iss` to match `tauri.conf.json`'s `version` before each release.
-</details>
-
----
-
-## Project layout
-
-```
-src/            React frontend (tabs, panels, settings)
-public/         Overlay/calibration windows, vendored d2ttk assets
-src-tauri/      Rust backend (macros, hotkeys, OCR overlay, loadout swaps, embedded webviews)
-installer/      Inno Setup packaging script
-```
-
----
-
 ## Notes
 
 - Weapon stats/TTK math and perk data reuse d2ttk.com's own client-side engine; community roll data is decoded from Godroll.tv's encoding.
