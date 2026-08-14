@@ -31,7 +31,15 @@ Marco bundles six tools behind one tab bar: an AHK macro manager, a native loado
 
 ## Notes
 
-- Marco is not open source at the moment will be later down the line
+- Marco is not open source at the moment will be later down the line. 
 - Weapon stats/TTK math and perk data reuse d2ttk.com's own client-side engine; community roll data is decoded from Godroll.tv's encoding.
 - All settings and account data are stored locally (`localStorage` + a `profiles/` folder next to the executable) — nothing is sent anywhere except the sites you're already using.
 - All rights reserved.
+
+---
+
+## Credits
+
+- Aste: For the general idea and features it should have & Implementing the real in time game overlay for perks. 
+- Poofafysh: Built the general structuring for the app and macro feature.
+- Skril: Fully coded and brought the idea to life and cleaned up the Designed and Overlay UI. 
