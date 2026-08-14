@@ -42,4 +42,4 @@ Marco bundles six tools behind one tab bar: an AHK macro manager, a native loado
 
 - Aste: For the general idea and features it should have & Implementing the real in time game overlay for perks. 
 - Poofafysh: Built the general structuring for the app and macro feature.
-- Skril: Fully coded and brought the idea to life and cleaned up the Designed and Overlay UI. 
+- Skril: Fully coded and brought the idea to life and cleaned up the design and overlay UI. 
