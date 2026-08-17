@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Marco Overlay</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: #000; color: #fff; overflow: hidden;
+    font-family: Inter, "Segoe UI", sans-serif;
+    -webkit-user-select: none; user-select: none;
+  }
+  #root { display: flex; flex-direction: column; height: 100%; border: 1px solid rgba(255,255,255,0.14); box-sizing: border-box; }
+  #bar {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 10px; background: #0a0a0a; flex-shrink: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1); cursor: move;
+  }
+  #num { color: #e53935; font-size: 11px; font-weight: 700; letter-spacing: 1.8px; }
+  #titlewrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  #title { color: #fff; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #titlekind { color: #6b6b6b; font-size: 8.5px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #mode { color: #e53935; font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; white-space: nowrap;
+          flex: 0 1 auto; min-width: 0; max-width: 34%; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+  .hbtn { color: #8a8a8a; background: none; border: none; font-size: 12px; cursor: pointer; padding: 0 2px; line-height: 1; }
+  .hbtn:hover { color: #fff; }
+  #body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; }
+  #body::-webkit-scrollbar { width: 5px; }
+  #body::-webkit-scrollbar-thumb { background: #2a2a2a; }
+  /* ---- TTK ---- */
+  .ttkbox { display: flex; gap: 22px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .ttkbox .lbl { color: #6b6b6b; font-size: 8px; letter-spacing: 1.5px; }
+  .ttkbox .val { color: #fff; font-size: 20px; font-weight: 600; line-height: 1.15; }
+  .ttkbox .val.crit { color: #e53935; }
+  .ttkbox .sub { color: #7a7a7a; font-size: 9px; letter-spacing: 0.5px; margin-top: 1px; }
+
+  /* ---- Stats (clean single-line rows, bar fills right of label) ---- */
+  .statlist { display: flex; flex-direction: column; gap: 3px; }
+  .stat { display: flex; align-items: center; gap: 8px; height: 15px; }
+  .stat .label { width: 78px; flex-shrink: 0; color: #9b9b9b; font-size: 9.5px; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat .value { width: 22px; flex-shrink: 0; text-align: right; color: #e8e8e8; font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .track { flex: 1; height: 4px; background: #1a1a1a; position: relative; border-radius: 1px; }
+  .stat .fill { display: block; height: 100%; background: #d8d8d8; border-radius: 1px; }
+  .stat .marker { position: absolute; top: -2px; width: 2px; height: 8px; background: #c0392b; border-radius: 1px; }
+  .stat .arrow { flex: 1; display: flex; align-items: center; }
+  .stat .arrow svg { display: block; }
+  .stat .novalue { flex: 1; }
+
+  /* ---- Perks: side-by-side columns, circular filled icons ---- */
+  .perkgrid { display: flex; gap: 5px; align-items: flex-start; }
+  .permcol { flex: 1 1 0; min-width: 44px; display: flex; flex-direction: column; align-items: center; }
+  .colhdr { color: #6b6b6b; font-size: 7px; letter-spacing: 0.2px; text-align: center; line-height: 1.25;
+            margin-bottom: 6px; text-transform: uppercase; word-break: normal; overflow-wrap: normal; hyphens: none; min-height: 20px; }
+  .perkstack { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .perk { position: relative; border-radius: 50%; background: #17171a; border: 1px solid rgba(255,255,255,0.16);
+          overflow: hidden; opacity: 0.82; flex-shrink: 0; }
+  .perk:hover { opacity: 1; }
+  .perk.sel { opacity: 1; border-color: #3ea6ff; box-shadow: 0 0 0 1px #3ea6ff, 0 0 6px rgba(62,166,255,0.55); }
+  .perk.selc { opacity: 1; border-color: #e5c232; box-shadow: 0 0 0 1px #e5c232, 0 0 6px rgba(229,194,50,0.5); }
+  .perk.altc { opacity: 0.9; border-color: rgba(229,194,50,0.5); }
+  .perk img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .perk.big { width: 30px; height: 30px; }
+  .perk.small { width: 24px; height: 24px; }
+
+  #mode.gold { color: #e5c232; }
+  .foot { margin-top: 8px; color: #7a7a7a; font-size: 9.5px; letter-spacing: 1px; display: flex; justify-content: space-between; }
+  .empty { color: #4f4f4f; font-size: 11px; letter-spacing: 1px; padding: 8px 0; }
+</style>
+</head>
+<body>
+  <div id="root">
+    <div id="bar" data-tauri-drag-region>
+      <span id="num" data-tauri-drag-region>01</span>
+      <div id="titlewrap" data-tauri-drag-region>
+        <span id="title" data-tauri-drag-region>—</span>
+        <span id="titlekind" data-tauri-drag-region>—</span>
+      </div>
+      <span id="mode"></span>
+      <button class="hbtn" id="close" title="Hide overlay (Esc)">✕</button>
+    </div>
+    <div id="body"><div class="empty">Waiting for a weapon…</div></div>
+  </div>
+  <script type="module">
+    import { MODES, pickRoll, displayFor } from "/vendor/optimise.js";
+
+    var PANEL = new URLSearchParams(location.search).get("panel") || "stats";
+    var NUMS = { stats: "01", perks: "02" };
+    // The roll itself — Mod/Masterwork are generic pools that just crowd the
+    // overlay, so they're intentionally not shown.
+    var DISPLAY_COLUMNS = ["Barrel", "Magazine", "Trait 1", "Trait 2", "Origin Trait", "Catalyst"];
+
+    // Canonical in-game / DIM weapon-stat display order (statHash -> priority).
+    // d2ttk's displayStats come sorted by statHash number (scrambled), so we
+    // re-sort by this. Unknown stats fall to the end.
+    var STAT_ORDER = {
+      4043523819: 10, 3614673599: 11, 2961396640: 12, 447667954: 13,
+      1240592695: 20, 2523465841: 21, 1591432999: 22,
+      155624089: 30, 943549884: 31, 4188031367: 32, 1345609583: 33,
+      3555269338: 34, 2714457168: 35, 1931675084: 36,
+      4284893193: 40, 3871231066: 41, 2715839340: 42
+    };
+    function statRank(h) { return STAT_ORDER[h] != null ? STAT_ORDER[h] : 999; }
+    var lastData = null;
+    var lastSeq = -1;
+    var fitState = { win: null, W: null, selfResize: false, lastManual: 0 };
+
+    // Auto-size the window height to its content so nothing needs scrolling
+    // (clamped to 85% of the screen; a manual resize pauses auto-fit briefly).
+    function fitHeight() {
+      if (!fitState.win) return;
+      if (Date.now() - fitState.lastManual < 1200) return;
+      var bar = document.getElementById("bar");
+      var bodyEl = document.getElementById("body");
+      var dpr = window.devicePixelRatio || 1;
+      var minH = Math.round(150 * dpr); // never let a panel collapse to invisible
+      var target = Math.ceil((bar.offsetHeight + bodyEl.scrollHeight + 4) * dpr);
+      var maxH = Math.floor((screen.height * dpr) * 0.85);
+      target = Math.max(minH, Math.min(target, maxH));
+      fitState.win.innerSize().then(function (s) {
+        if (Math.abs(s.height - target) < 8) return;
+        fitState.selfResize = true;
+        fitState.win.setSize(new fitState.W.PhysicalSize(s.width, target)).then(function () {
+          setTimeout(function () { fitState.selfResize = false; }, 350);
+        }).catch(function () { fitState.selfResize = false; });
+      }).catch(function () {});
+    }
+
+    function acceptData(payload) {
+      if (!payload) return;
+      var seq = typeof payload.seq === "number" ? payload.seq : 0;
+      if (seq < lastSeq) return; // stale (rapid weapon switch)
+      lastSeq = seq;
+      lastData = payload;
+      render();
+    }
+
+    document.getElementById("num").textContent = NUMS[PANEL] || "";
+    document.getElementById("title").textContent = "—";
+    document.getElementById("titlekind").textContent = PANEL.toUpperCase();
+
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+    }
+    function fmtTtk(sec) {
+      if (sec == null || !isFinite(sec)) return "—";
+      return (Math.round(sec * 100) / 100) + "s";
+    }
+
+    function render() {
+      var body = document.getElementById("body");
+      if (!lastData) { body.innerHTML = '<div class="empty">Waiting for a weapon…</div>'; return; }
+      var rec = lastData.record || {};
+      var det = lastData.detail || {};
+      var loading = lastData.loading === true;
+      var weapon = det.weapon || null;
+      if (loading && !weapon) {
+        document.getElementById("title").textContent = rec.name || "—";
+        document.getElementById("titlekind").textContent = PANEL === "stats" ? "STATS" : "PERKS";
+        document.getElementById("mode").textContent = "";
+        body.innerHTML = '<div class="empty">Loading ' + esc(rec.name || "weapon") + ' data…</div>';
+        return;
+      }
+      var modeKey = lastData.optimise || "off";
+      var isCommunity = lastData.source === "community";
+      var communityErr = null;
+      var communityLoading = false;
+      var communityAlts = {};
+      var roll = null;
+      var fellBack = false; // community unavailable → showing d2ttk instead
+
+      function d2ttkFallback() {
+        if (!weapon) return;
+        var fbMode = (modeKey && modeKey !== "off") ? modeKey : "lowest-ttk";
+        try { roll = pickRoll(weapon, fbMode); fellBack = true; } catch (e) { roll = null; }
+      }
+
+      if (isCommunity) {
+        var cr = lastData.communityRoll;
+        if (cr && cr.loading) {
+          communityLoading = true;
+          // Show the d2ttk pick immediately (red) so there's no blank gap while
+          // the community roll loads; it swaps to gold when that arrives.
+          d2ttkFallback();
+        } else {
+          if (!cr || cr.ok !== true) {
+            communityErr = (cr && cr.error) || "no data";
+          } else if (weapon) {
+            // Index-based mapping: Marco decoded godroll's roll into
+            // { socketIndex: [{index, active}] } — the index is a position in
+            // that socket's plug list (same Bungie-manifest order d2ttk uses).
+            var data = cr.data || {};
+            var decoded = data.picks || {};
+            var picks = {};
+            weapon.sockets.forEach(function (socket) {
+              var entries = decoded[socket.socketIndex] || decoded[String(socket.socketIndex)];
+              if (!entries || !entries.length) return;
+              var plugs = socket.plugs || [];
+              var chosen = null;
+              entries.forEach(function (e) { if (!chosen || e.active) chosen = e; });
+              if (chosen && plugs[chosen.index]) picks[socket.socketIndex] = plugs[chosen.index].hash;
+            });
+            if (Object.keys(picks).length > 0) roll = { picks: picks, rollCount: data.rollCount };
+          }
+          // Community done but no usable roll → fall back to the d2ttk pick so
+          // the panel is still useful.
+          if (!roll) d2ttkFallback();
+        }
+      } else if (weapon && modeKey !== "off") {
+        try { roll = pickRoll(weapon, modeKey); } catch (e) { roll = null; }
+      }
+
+      // Gold only for a real community roll; red for the d2ttk fallback / d2ttk source.
+      var communityHighlight = isCommunity && !fellBack && !communityLoading && !communityErr;
+
+      var name = (weapon && weapon.name) || rec.name || "—";
+      var rev = det.rev || null; // e.g. "Rev. 1" — set when d2ttk shows this weapon as reworked.
+      var modeObj = MODES.find(function (m) { return m.key === modeKey; });
+      var fbModeObj = MODES.find(function (m) { return m.key === ((modeKey && modeKey !== "off") ? modeKey : "lowest-ttk"); });
+      var modeEl = document.getElementById("mode");
+      modeEl.className = communityHighlight ? "gold" : "";
+      modeEl.textContent = isCommunity
+        ? (communityLoading ? "COMMUNITY LOADING… · D2TTK " + (fbModeObj ? fbModeObj.label.toUpperCase() : "")
+           : communityHighlight ? "COMMUNITY GODROLL" + (roll && roll.rollCount ? " · " + roll.rollCount + " ROLLS" : "")
+           : (communityErr === "login_required" ? "LOGIN NEEDED · D2TTK " : "NO COMMUNITY DATA · D2TTK ") + (fbModeObj ? fbModeObj.label.toUpperCase() : ""))
+        : (roll && modeObj ? modeObj.label : "");
+      document.getElementById("title").textContent = name + (rev ? " | " + rev : "");
+      document.getElementById("titlekind").textContent = PANEL === "stats" ? "STATS" : "PERKS";
+
+      // Compact one-line note (does NOT replace the perk pool below it).
+      var noteHtml = function (txt) { return '<div class="colhdr" style="color:#8a8a8a;margin-bottom:4px;">' + esc(txt) + '</div>'; };
+      var errNote = "";
+      if (communityLoading) errNote = noteHtml("Fetching community godroll…");
+      else if (communityErr === "login_required") errNote = noteHtml("Log into godroll.tv (GODROLL.tv tab) — showing D2TTK for now");
+      else if (communityErr === "not_enough_data") errNote = noteHtml("No community rolls for this weapon yet — showing D2TTK");
+      else if (communityErr) errNote = noteHtml("Community godroll unavailable — showing D2TTK");
+
+      if (PANEL === "stats") {
+        // Site-exact numbers: d2ttk's own display calculator, run with the
+        // optimised picks (or the site's default view when Off).
+        var statGroup = det.statGroup || null;
+        var dispBase = weapon ? displayFor(weapon, statGroup, null) : null;
+        var disp = roll && weapon ? displayFor(weapon, statGroup, roll.picks) : dispBase;
+
+        var optimal = disp && disp.showTtk && disp.ttk ? fmtTtk(disp.ttk.critTtk) : (det.optimalTtk || "—");
+        var bodyTtk = disp && disp.showTtk && disp.ttk ? fmtTtk(disp.ttk.bodyTtk) : (det.bodyTtk || "—");
+        var pattern = disp && disp.ttk ? disp.ttk.pattern : null;
+        var rollLabel = roll ? (communityHighlight ? "COMMUNITY ROLL" : "OPTIMISED ROLL") : null;
+        var html = errNote + '<div class="ttkbox">' +
+          '<div><div class="lbl">OPTIMAL TTK</div><div class="val crit">' + esc(optimal) + '</div>' +
+          (rollLabel ? '<div class="sub">' + rollLabel + '</div>' : (pattern ? '<div class="sub">' + esc(pattern).toUpperCase() + '</div>' : '')) + '</div>' +
+          '<div><div class="lbl">BODY TTK</div><div class="val">' + esc(bodyTtk) + '</div>' +
+          (disp && disp.ttk && disp.ttk.critDmg ? '<div class="sub">CRIT ' + disp.ttk.critDmg + ' · BODY ' + disp.ttk.bodyDmg + '</div>' : '') + '</div>' +
+          '</div>';
+
+        var shownStats = ((disp && disp.displayStats) || (weapon && weapon.stats) || []).slice()
+          .sort(function (a, b) { return statRank(a.statHash) - statRank(b.statHash); });
+        var baseMap = {};
+        ((dispBase && dispBase.displayStats) || []).forEach(function (s) { baseMap[s.statHash] = s.displayValue; });
+
+        html += '<div class="statlist">';
+        shownStats.forEach(function (st) {
+          var shown = Math.round(st.displayValue);
+          var base = baseMap[st.statHash] != null ? Math.round(baseMap[st.statHash]) : shown;
+          var nameLc = String(st.name || "").toLowerCase();
+          var isRecoilDir = nameLc.indexOf("recoil direction") !== -1;
+          var isMagazine = !st.isBar && nameLc.indexOf("magazine") !== -1;
+
+          html += '<div class="stat"><span class="label">' + esc(st.name).toUpperCase() + '</span>' +
+            '<span class="value">' + shown + '</span>';
+
+          if (isRecoilDir) {
+            // Cosmetic compass needle: 100 = dead straight up, lower values
+            // lean left, higher values lean right. Not an exact physics
+            // model — just a quick visual cue, matching the in-game hint.
+            var angle = Math.max(-45, Math.min(45, (100 - shown) * 0.9));
+            html += '<span class="arrow"><svg width="10" height="10" viewBox="0 0 10 10" style="transform:rotate(' + angle + 'deg)">' +
+              '<path d="M5 0 L9 9 L5 6.5 L1 9 Z" fill="#9b9b9b"/></svg></span>';
+          } else if (isMagazine || !st.isBar) {
+            html += '<span class="novalue"></span>';
+          } else {
+            var barVal = Math.max(0, Math.min(100, base));
+            var gain = shown - base;
+            html += '<span class="track"><span class="fill" style="width:' + barVal + '%"></span>' +
+              (gain !== 0 ? '<span class="marker" style="left:' + Math.max(0, Math.min(100, shown)) + '%"></span>' : '') +
+              '</span>';
+          }
+          html += '</div>';
+        });
+        html += '</div>';
+
+        html += '<div class="foot"><span>' + (disp && disp.rpm ? Math.round(disp.rpm) + " RPM" : (rec.rpm ? rec.rpm + " RPM" : "")) + '</span><span>' +
+          esc(((rec.archetype || weapon && weapon.archetype || "") + " · " + (rec.typeName || weapon && weapon.typeName || "")).toUpperCase()) + '</span></div>';
+        body.innerHTML = html;
+        return;
+      }
+
+      // Perks panel — one vertical column per socket, columns laid out
+      // side by side (mirrors the in-game perk-tree layout).
+      var html2 = errNote;
+      var picks = roll ? roll.picks : {};
+      var selCls = communityHighlight ? "selc" : "sel";
+      var colsHtml = "";
+      var anyCols = false;
+      if (weapon && weapon.sockets) {
+        var seenColumns = {};
+        weapon.sockets.forEach(function (socket) {
+          if (DISPLAY_COLUMNS.indexOf(socket.columnLabel) === -1) return;
+          if (!socket.plugs || socket.plugs.length === 0) return;
+          if (seenColumns[socket.columnLabel]) return; // weapons can repeat a column
+          seenColumns[socket.columnLabel] = true;
+          anyCols = true;
+          var big = socket.columnLabel.indexOf("Trait") === 0;
+          var selHash = picks[socket.socketIndex];
+          var alts = communityAlts[socket.socketIndex] || [];
+          colsHtml += '<div class="permcol"><div class="colhdr">' + esc(socket.columnLabel).toUpperCase() + '</div>' +
+            '<div class="perkstack">' + socket.plugs.map(function (p) {
+              var cls = "";
+              if (selHash === p.hash) cls = " " + selCls;
+              else if (isCommunity && alts.indexOf(p.hash) !== -1) cls = " altc";
+              return '<span class="perk ' + (big ? "big" : "small") + cls + '" title="' + esc(p.name) + '">' +
+                '<img src="' + esc(p.icon) + '" alt="" loading="lazy" /></span>';
+            }).join("") + '</div></div>';
+        });
+      } else if (det.columns) {
+        det.columns.forEach(function (c) {
+          anyCols = true;
+          colsHtml += '<div class="permcol"><div class="colhdr">' + esc(c.label).toUpperCase() + '</div>' +
+            '<div class="perkstack">' + c.perks.map(function (p) {
+              return '<span class="perk small" title="' + esc(p.name) + '"><img src="' + esc(p.icon) + '" alt="" /></span>';
+            }).join("") + '</div></div>';
+        });
+      }
+      if (anyCols) html2 += '<div class="perkgrid">' + colsHtml + '</div>';
+      if (!isCommunity && modeKey === "off" && anyCols) {
+        html2 += '<div class="colhdr" style="margin-top:6px;color:#4f4f4f;letter-spacing:1px;text-align:left;">Pick an Optimise mode to highlight a recommended roll</div>';
+      }
+      body.innerHTML = html2 || '<div class="empty">No perk data</div>';
+    }
+
+    var realRender = render;
+    render = function () {
+      realRender();
+      setTimeout(fitHeight, 60);
+    };
+
+    function whenTauriReady(cb) {
+      if (window.__TAURI__) cb();
+      else setTimeout(function () { whenTauriReady(cb); }, 20);
+    }
+
+    whenTauriReady(function () {
+      var invoke = window.__TAURI__.core.invoke;
+      var listen = window.__TAURI__.event.listen;
+
+      listen("weapon-data", function (e) {
+        acceptData(e.payload);
+      });
+      // Community roll arrives separately (fetched in the background) — merge
+      // it into the current payload and re-render if it's for this weapon.
+      listen("community-roll", function (e) {
+        var p = e.payload || {};
+        if (!lastData || p.seq !== lastData.seq) return;
+        lastData.communityRoll = p.ok ? { ok: true, data: p.data } : { ok: false, error: p.error };
+        render();
+      });
+      // Pull the latest payload in case it was emitted before this window's
+      // listener existed (fresh windows miss broadcasts otherwise).
+      invoke("get_overlay_data").then(function (d) {
+        if (d && d.record) acceptData(d);
+      }).catch(function () {});
+
+      document.getElementById("close").addEventListener("click", function () {
+        invoke("hide_overlay").catch(function () {});
+      });
+      window.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") invoke("hide_overlay").catch(function () {});
+      });
+
+      // Persist/restore this panel's position + size (per-panel key).
+      try {
+        var W = window.__TAURI__.window;
+        var win = W.getCurrentWindow();
+        fitState.win = win;
+        fitState.W = W;
+        var posKey = "marco.overlayPos." + PANEL;
+        var saved = null;
+        try { saved = JSON.parse(localStorage.getItem(posKey)); } catch (e) {}
+        if (saved && typeof saved.x === "number") {
+          win.setPosition(new W.PhysicalPosition(saved.x, saved.y)).catch(function () {});
+          // Only restore a sane saved size — ignore a collapsed one so the
+          // window can't come back invisible.
+          if (saved.w >= 160 && saved.h >= 120) {
+            win.setSize(new W.PhysicalSize(saved.w, saved.h)).catch(function () {});
+          }
+        }
+        var save = function () {
+          Promise.all([win.outerPosition(), win.innerSize()]).then(function (r) {
+            localStorage.setItem(posKey, JSON.stringify({ x: r[0].x, y: r[0].y, w: r[1].width, h: r[1].height }));
+          }).catch(function () {});
+        };
+        var t = null;
+        var debounced = function () { clearTimeout(t); t = setTimeout(save, 400); };
+        win.onMoved(debounced);
+        win.onResized(function () {
+          if (!fitState.selfResize) fitState.lastManual = Date.now();
+          debounced();
+        });
+      } catch (e) { /* persistence is best-effort */ }
+
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

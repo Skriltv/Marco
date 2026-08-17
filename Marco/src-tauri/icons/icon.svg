@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Background fills the entire canvas, no transparent margin -->
+  <rect x="0" y="0" width="128" height="128" fill="#0b0b0d"/>
+
+  <!-- Angular M mark, built as two folded chevrons -->
+  <path
+    d="M 30 90 L 30 40 L 47 40 L 64 66 L 81 40 L 98 40 L 98 90 L 84 90 L 84 60 L 68 84 L 60 84 L 44 60 L 44 90 Z"
+    fill="#f4f4f5"
+    stroke="#8b5cf6"
+    stroke-width="2.5"
+    stroke-linejoin="round"
+  />
+</svg>
