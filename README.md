@@ -29,9 +29,51 @@ Marco bundles six tools behind one tab bar: an AHK macro manager, a native loado
 
 ---
 
+## Building from source
+
+**Prerequisites**
+
+- Windows 10/11 (64-bit)
+- [Node.js](https://nodejs.org/) 18+ and [pnpm](https://pnpm.io/installation) (`npm install -g pnpm`)
+- [Rust](https://www.rust-lang.org/tools/install) (stable toolchain, installed via `rustup`)
+- The [Tauri v2 prerequisites](https://tauri.app/start/prerequisites/) for Windows — mainly the MSVC C++ build tools (via Visual Studio Build Tools) and the WebView2 runtime (preinstalled on current Windows 10/11)
+
+**Steps**
+
+```sh
+# 1. Clone the repo
+git clone https://github.com/<your-username>/marco.git
+cd marco
+
+# 2. Install JS dependencies
+pnpm install
+
+# 3. Run in dev mode (hot-reload, opens the app window)
+pnpm tauri dev
+
+# 4. Build a release binary + NSIS installer
+pnpm tauri build
+```
+
+- `pnpm tauri dev` compiles the Rust backend and launches Marco with the Vite dev server attached, so front-end edits hot-reload.
+- `pnpm tauri build` produces the release executable at `src-tauri/target/release/marco.exe` and, since `bundle.targets` includes `nsis`, a Windows installer under `src-tauri/target/release/bundle/nsis/`.
+
+**Optional: building the Inno Setup installer instead**
+
+The repo also ships an Inno Setup script (`installer/Marco.iss`) used for release builds. To use it instead of Tauri's built-in NSIS bundler:
+
+```sh
+pnpm install
+pnpm tauri build --no-bundle      # compiles src-tauri/target/release/marco.exe only
+ISCC installer/Marco.iss          # requires Inno Setup 6+: https://jrsoftware.org/isinfo.php
+```
+
+The output installer lands in `installer/output/Marco_<version>_x64-setup.exe`.
+
+---
+
 ## Notes
 
-- Marco is not open source at the moment will be later down the line. 
 - Weapon stats/TTK math and perk data reuse d2ttk.com's own client-side engine; community roll data is decoded from Godroll.tv's encoding.
 - All settings and account data are stored locally (`localStorage` + a `profiles/` folder next to the executable) — nothing is sent anywhere except the sites you're already using.
 - All rights reserved.
