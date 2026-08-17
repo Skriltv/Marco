@@ -67,6 +67,18 @@
   #mode.gold { color: #e5c232; }
   .foot { margin-top: 8px; color: #7a7a7a; font-size: 9.5px; letter-spacing: 1px; display: flex; justify-content: space-between; }
   .empty { color: #4f4f4f; font-size: 11px; letter-spacing: 1px; padding: 8px 0; }
+
+  /* ---- Perk hover tooltip (name + description) ---- */
+  #ptip {
+    position: fixed; z-index: 9999; width: 200px; padding: 8px 9px;
+    background: #0a0a0a; border: 1px solid rgba(255,255,255,0.16);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.55);
+    pointer-events: none; display: none;
+  }
+  #ptip .ptip-name { color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px;
+                      text-transform: uppercase; margin-bottom: 3px; }
+  #ptip .ptip-desc { color: #b7b7b7; font-size: 10px; line-height: 1.4; white-space: pre-line; }
+  #ptip .ptip-none { color: #5a5a5a; font-size: 9.5px; font-style: italic; }
 </style>
 </head>
 <body>
@@ -82,6 +94,7 @@
     </div>
     <div id="body"><div class="empty">Waiting for a weapon…</div></div>
   </div>
+  <div id="ptip"></div>
   <script type="module">
     import { MODES, pickRoll, displayFor } from "/vendor/optimise.js";
 
@@ -319,7 +332,8 @@
               var cls = "";
               if (selHash === p.hash) cls = " " + selCls;
               else if (isCommunity && alts.indexOf(p.hash) !== -1) cls = " altc";
-              return '<span class="perk ' + (big ? "big" : "small") + cls + '" title="' + esc(p.name) + '">' +
+              return '<span class="perk ' + (big ? "big" : "small") + cls +
+                '" data-pname="' + esc(p.name) + '" data-pdesc="' + esc(p.description || "") + '">' +
                 '<img src="' + esc(p.icon) + '" alt="" loading="lazy" /></span>';
             }).join("") + '</div></div>';
         });
@@ -328,7 +342,8 @@
           anyCols = true;
           colsHtml += '<div class="permcol"><div class="colhdr">' + esc(c.label).toUpperCase() + '</div>' +
             '<div class="perkstack">' + c.perks.map(function (p) {
-              return '<span class="perk small" title="' + esc(p.name) + '"><img src="' + esc(p.icon) + '" alt="" /></span>';
+              return '<span class="perk small" data-pname="' + esc(p.name) + '" data-pdesc="">' +
+                '<img src="' + esc(p.icon) + '" alt="" /></span>';
             }).join("") + '</div></div>';
         });
       }
@@ -344,6 +359,70 @@
       realRender();
       setTimeout(fitHeight, 60);
     };
+
+    // ---- Perk hover tooltip (name + what-it-does) ----------------------
+    // Delegated on #body since .perk icons are replaced wholesale on every
+    // render() call, so binding listeners per-icon would leak/detach them.
+    (function () {
+      var tip = document.getElementById("ptip");
+      var activeEl = null;
+
+      function place(x, y) {
+        var pad = 10;
+        var w = tip.offsetWidth || 200;
+        var h = tip.offsetHeight || 40;
+        var left = x + 14;
+        var top = y + 14;
+        if (left + w + pad > window.innerWidth) left = x - w - 14;
+        if (top + h + pad > window.innerHeight) top = y - h - 14;
+        if (left < pad) left = pad;
+        if (top < pad) top = pad;
+        tip.style.left = left + "px";
+        tip.style.top = top + "px";
+      }
+
+      function show(el, x, y) {
+        var name = el.getAttribute("data-pname") || "";
+        var desc = el.getAttribute("data-pdesc") || "";
+        if (!name) return;
+        tip.innerHTML = '<div class="ptip-name">' + esc(name) + '</div>' +
+          (desc ? '<div class="ptip-desc">' + esc(desc) + '</div>'
+                : '<div class="ptip-none">No description available</div>');
+        tip.style.display = "block";
+        place(x, y);
+      }
+
+      function hide() {
+        activeEl = null;
+        tip.style.display = "none";
+      }
+
+      document.getElementById("body").addEventListener("mouseover", function (e) {
+        var el = e.target.closest(".perk");
+        if (!el) return;
+        activeEl = el;
+        show(el, e.clientX, e.clientY);
+      });
+      document.getElementById("body").addEventListener("mousemove", function (e) {
+        if (!activeEl) return;
+        var el = e.target.closest(".perk");
+        if (el !== activeEl) return;
+        place(e.clientX, e.clientY);
+      });
+      document.getElementById("body").addEventListener("mouseout", function (e) {
+        var el = e.target.closest(".perk");
+        if (!el) return;
+        if (e.relatedTarget && el.contains(e.relatedTarget)) return;
+        hide();
+      });
+      // A full re-render swaps the DOM out from under a currently-hovered
+      // icon; drop the stale tooltip rather than leave it stuck on screen.
+      var origRender = render;
+      render = function () {
+        hide();
+        origRender();
+      };
+    })();
 
     function whenTauriReady(cb) {
       if (window.__TAURI__) cb();
