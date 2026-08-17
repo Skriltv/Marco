@@ -150,8 +150,7 @@ export default function OverlayPanel({ profile, onOpenGodroll }: Props) {
   // every tab mounted, just hidden), whereas SettingsModal only mounts once
   // the user opens Settings. Registering it only from SettingsModal meant a
   // fresh launch never actually armed the shortcut with Tauri until you
-  // happened to open Settings that session — so it looked bound but did
-  // nothing in-game.
+  // happened to open Settings that session. 
   useEffect(() => {
     const combo = localStorage.getItem("marco.dimSearchHotkey");
     if (hotkeysEnabled && combo) {
