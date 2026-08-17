@@ -34,7 +34,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU4MUI4MjhCRDJBMUYyQQpSV1FxSHlxOUtMaUJCWXVqRFhSQTd0VFRTNWxQYi9mRUNXSWxFMDc2bTZPK1lKMlRvdGhuZHhBZgo=",
       "endpoints": ["https://macrohub-updates.onrender.com/latest.json"],
       "windows": { "installMode": "passive" }
     }
