@@ -72,6 +72,14 @@ The output installer lands in `installer/output/Marco_<version>_x64-setup.exe`.
 
 ---
 
+## Releasing updates
+
+- **Versioning**: run `pnpm run release` instead of `pnpm tauri build` to build with an incremented version. It bumps the patch version (e.g. `1.0.0` -> `1.0.1`) in `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, the in-app Settings screen, and `installer/Marco.iss` via `scripts/bump-version.mjs`, then runs `tauri build`. (Plain `pnpm tauri build` will **not** bump the version — Tauri reads `tauri.conf.json`'s version before any build hook can run, so the bump has to happen as a separate step first.) Bump without building: `pnpm run version:bump`.
+- **In-app updates**: Marco's "Check for updates" button reads from `https://github.com/Skriltv/Marco/releases/latest/download/latest.json`. To publish a version so existing installs can find it:
+  1. Bump + commit the version (`pnpm run version:bump`, or just let the next build do it), then tag it, e.g. `git tag v1.0.1 && git push origin v1.0.1`.
+  2. Pushing that tag triggers `.github/workflows/release.yml`, which builds Marco on `windows-latest` and publishes a GitHub Release with the installer, its signature, and a `latest.json` manifest attached.
+  3. That workflow needs a `TAURI_SIGNING_PRIVATE_KEY` (and optionally `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) repo secret — the private half of the minisign keypair matching the `pubkey` already set in `src-tauri/tauri.conf.json`. If you don't have that private key, generate a fresh pair with `pnpm tauri signer generate` and swap in the new public key.
+
 ## Notes
 
 - Weapon stats/TTK math and perk data reuse d2ttk.com's own client-side engine; community roll data is decoded from Godroll.tv's encoding.

@@ -1,8 +1,27 @@
 //! Native input simulation for the Loadout Swapper.
+//!
+//! Ported step-for-step from the old (working) WPF app's Win32 SendInput /
+//! keybd_event / mouse_event sequence — same keys, same delays — so a
+//! loadout swap is fully self-contained and no longer needs AutoHotkey.exe
+//! installed on the system.
+//!
+//! Why this exists: Marco's Loadouts tab previously piggy-backed on the
+//! general-purpose Macros pipeline — it generated a per-slot `.ahk` script
+//! and, on hotkey press, spawned `AutoHotkey.exe` to run it (see
+//! `register_hotkeys` / `run_macro` in commands.rs). That's an optional
+//! external dependency the old app never had, and if it isn't installed the
+//! spawn just fails silently (only `eprintln!`'d, never surfaced to the UI)
+//! — which is almost certainly why the Loadouts panel "doesn't work at all".
+//! This module removes that dependency for loadout slots specifically; the
+//! general Macros tab (arbitrary user `.ahk` scripts) is untouched.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
+
+// Raw user32.dll bindings, mirroring the old app's P/Invoke declarations
+// 1:1 (rather than pulling in extra `windows` crate features) so this stays
+// simple to audit against the original working C#.
 
 #[repr(C)]
 struct KeybdInput {
@@ -62,6 +81,8 @@ extern "system" {
     fn GetSystemMetrics(n_index: i32) -> i32;
 }
 
+/// Same-frame key-down + key-up (mirrors the old app's plain `keybd_event`
+/// tap for the Inventory Key).
 fn tap_key(vk: u8) {
     unsafe {
         keybd_event(vk, 0, 0, 0);
@@ -69,6 +90,12 @@ fn tap_key(vk: u8) {
     }
 }
 
+/// Scan-code-based keypress — sends a real hardware scan code via `SendInput`
+/// rather than a virtual-key event, which is what games that read raw scan
+/// codes (like Destiny 2) actually respond to. This is why the arrow key —
+/// and Esc — go through here instead of `tap_key`. Set `extended` for keys in
+/// the extended block (arrows, etc.); Esc is a normal key, so `extended` is
+/// false for it. Mirrors the old app's `SendExtendedKeyPress`.
 fn send_scancode_key(vk: u16, extended: bool) {
     let scan = unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC) } as u16;
     let base_flags = if extended {
@@ -96,6 +123,12 @@ fn send_scancode_key(vk: u16, extended: bool) {
     unsafe { SendInput(1, &input, std::mem::size_of::<Input>() as i32) };
 }
 
+/// Sends a single Escape keypress as a *full* key event: the virtual-key code
+/// AND an explicit hardware scan code together (`dw_flags: 0`, so Windows
+/// treats it like a real key with both fields populated), held ~60ms. This is
+/// deliberately different from both `tap_key` (vk only, scan 0) and
+/// `send_scancode_key` (scan only, vk 0) — earlier attempts using each of
+/// those alone did not register in Destiny's Loadouts menu.
 fn press_escape_once() {
     let scan = unsafe { MapVirtualKeyW(VK_ESCAPE as u32, MAPVK_VK_TO_VSC) } as u16;
     let mut input = Input {
@@ -118,6 +151,10 @@ fn press_escape_once() {
     unsafe { SendInput(1, &input, std::mem::size_of::<Input>() as i32) };
 }
 
+/// Moves the cursor to an absolute screen pixel position. `mouse_event`'s
+/// MOUSEEVENTF_ABSOLUTE flag wants coordinates normalized to 0..=65535
+/// relative to the primary screen, not raw pixels — matches the old app's
+/// `SetMousePos`.
 pub(crate) fn set_mouse_pos(x: i32, y: i32) {
     let screen_w = unsafe { GetSystemMetrics(SM_CXSCREEN) }.max(1) as f64;
     let screen_h = unsafe { GetSystemMetrics(SM_CYSCREEN) }.max(1) as f64;
@@ -133,6 +170,9 @@ pub(crate) fn click() {
     }
 }
 
+/// Resolves Marco's Inventory Key text (as typed/bound in the UI — a single
+/// character like "I", or a function key like "F1") to a VK code. Extend
+/// this list if you bind something it doesn't recognize yet.
 fn vk_from_name(name: &str) -> Option<u8> {
     let n = name.trim();
     if n.chars().count() == 1 {
@@ -151,8 +191,18 @@ fn vk_from_name(name: &str) -> Option<u8> {
     }
 }
 
+// Prevents overlapping swaps (e.g. holding a hotkey down, or two slots
+// bound to the same key) from interleaving their keystrokes — mirrors the
+// old app's `_isMacroExecuting` guard.
 static SWAP_RUNNING: AtomicBool = AtomicBool::new(false);
 
+/// Runs one loadout swap: open inventory, go to the Loadouts sub-tab, click
+/// the calibrated slot position, close inventory. Blocking — takes ~1.1s.
+/// Call from a background thread, never from the UI/event-loop thread.
+///
+/// `close_with_esc` picks the final keypress used to leave the character
+/// screen: `false` re-presses the Inventory key (the original behavior),
+/// `true` presses Esc instead (for players who close the inventory with Esc).
 pub fn execute_loadout_swap(
     inventory_key: &str,
     x: i32,
@@ -182,6 +232,11 @@ pub fn execute_loadout_swap(
         thread::sleep(Duration::from_millis(150));
 
         if close_with_esc {
+            // Back out of the Loadouts sub-menu (stay in the inventory) rather
+            // than closing the whole character screen. A single press only —
+            // pressing twice backs out of the inventory entirely, which
+            // defeats the point of this option. Uses a full vk+scancode key
+            // event — see press_escape_once.
             press_escape_once();
         } else {
             tap_key(inv_vk);

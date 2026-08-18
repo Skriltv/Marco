@@ -22,6 +22,10 @@ export interface MacroBinding {
   closeWithEsc?: boolean;
 }
 
+export function uninstallApp(): Promise<void> {
+  return invoke<void>("uninstall_app");
+}
+
 export function listMacros(): Promise<MacroFile[]> {
   return invoke<MacroFile[]>("list_macros");
 }

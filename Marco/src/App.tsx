@@ -15,10 +15,16 @@ import { isExtraFeaturesUnlocked } from "./lib/extraFeatures";
 
 const WELCOME_SEEN_KEY = "marco.welcomeSeen";
 
+// Defined once at module scope (not inside App()) so the array reference is
+// stable across renders — EmbeddedSitePanel only re-syncs its webviews when
+// the selected site / active tab / profile actually change.
 const DIM_SITES: SitePanelSite[] = [
   { id: "dim", webviewLabel: "dim", title: "Destiny Item Manager", url: "https://app.destinyitemmanager.com" },
 ];
-
+// NOTE: the "godroll" webviewLabel is also looked up directly by the D2TTK
+// overlay's "Community Godroll" background fetch (src-tauri/src/overlay.rs),
+// which assumes it's pointed at godroll.tv — keep that id/label pinned to
+// Godroll.tv and give D2TTK its own separate webview/label here.
 const GODROLL_SITES: SitePanelSite[] = [
   { id: "godroll", webviewLabel: "godroll", title: "Godroll.tv", url: "https://godroll.tv" },
   { id: "d2ttk", webviewLabel: "godroll-d2ttk", title: "D2TTK", url: "https://d2ttk.com" },
@@ -34,25 +40,33 @@ export default function App() {
   }, []);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Shown once, the first time the app is opened after install.
   const [showWelcome, setShowWelcome] = useState(() => !localStorage.getItem(WELCOME_SEEN_KEY));
   function dismissWelcome() {
     localStorage.setItem(WELCOME_SEEN_KEY, "1");
     setShowWelcome(false);
- } 
+  }
+  // Extra Features (e.g. the DIM login export/import bar) stay hidden until
+  // someone enters the unlock code in Settings.
   const [extraFeaturesUnlocked, setExtraFeaturesUnlocked] = useState(isExtraFeaturesUnlocked);
 
   const [tab, setTab] = useState<TabId>("loadouts");
   const [tabPrefs, setTabPrefs] = useState<TabPrefs>(loadTabPrefs);
   useEffect(() => { saveTabPrefs(tabPrefs); }, [tabPrefs]);
 
+  // Fired by the "DIM — Search" global hotkey (see SettingsModal) so it can
+  // switch tabs even though the Rust side has no idea what tab state is.
   useEffect(() => {
     const un = listen<string>("switch-tab", (e) => {
       const id = e.payload as TabId;
       if (tabPrefs.order.includes(id)) setTab(id);
     });
     return () => { un.then(f => f()); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const visibleTabs = tabPrefs.order.filter(id => !tabPrefs.hidden.includes(id));
+  // If the active tab just got hidden from Settings, jump to whatever's
+  // first in the (now-updated) visible list instead of showing a blank pane.
   useEffect(() => {
     if (tabPrefs.hidden.includes(tab) && visibleTabs.length > 0) setTab(visibleTabs[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -71,6 +85,8 @@ export default function App() {
 
   const activeAccount = accounts.find(a => a.id === activeId) ?? accounts[0];
 
+  // "Main" keeps the default shared session (pre-feature logins); every other
+  // account gets its own isolated profile folder keyed by the immutable id.
   const profile = profileForAccount(activeAccount.id);
 
   function addAccount(name: string) {
@@ -83,6 +99,7 @@ export default function App() {
     setActiveId(id);
   }
 
+  /** Display-name only — the profile folder (id) never changes, so no logout/reload. */
   function renameActiveAccount(name: string) {
     setRenamingAccount(false);
     const trimmed = name.trim();
@@ -106,6 +123,8 @@ export default function App() {
   async function minimize() { await getCurrentWindow().minimize(); }
   async function closeWin() { await getCurrentWindow().close(); }
 
+  // Tab content stays mounted (just hidden) so the DIM / Godroll.tv native
+  // webviews don't have to reload every time you switch tabs.
   const show = (t: TabId) => ({ display: tab === t ? "flex" : "none" }) as const;
 
   return (

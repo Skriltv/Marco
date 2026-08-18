@@ -1,4 +1,10 @@
 // --- Extra Features unlock ---
+//
+// A handful of features (currently: the per-account DIM login export/import
+// bar) are hidden by default. Entering this code in Settings → Extra
+// Features unlocks them for this install. Change UNLOCK_CODE to whatever
+// you want to hand out — anyone who enters it gets access.
+
 export const UNLOCK_CODE = "marcotest";
 
 const UNLOCKED_STORAGE_KEY = "marco.extraFeaturesUnlocked";

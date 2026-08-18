@@ -14,9 +14,20 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl};
 
 const WEAPON_DB_URL: &str = "https://d2ttk.com/data/weapons.json";
 const DB_MAX_AGE: Duration = Duration::from_secs(7 * 24 * 3600);
-
+/// Per-weapon detail cache (TTK/perks/stats) age limit. Independent of, and
+/// shorter than nothing special — same window as the master list — but the
+/// point is just that this now HAS an expiry at all. Previously detail
+/// files were cached forever (only ever invalidated by the "v" format-
+/// version bump), so a sandbox update that revamps a weapon's perks/TTK on
+/// d2ttk's site never got picked up here once that weapon had already been
+/// detected once. See also: purge_all_weapon_detail_cache, which drops
+/// every detail file the moment the master list actually changes, so a
+/// revamp is picked up immediately rather than waiting out this window.
 const DETAIL_MAX_AGE: Duration = Duration::from_secs(7 * 24 * 3600);
-
+/// The independent overlay panels; each is its own always-on-top window
+/// loading overlay.html?panel=<kind>. (w, h) are creation defaults — the user
+/// resizes/moves them freely afterward and overlay.html persists that.
+/// (TTK is merged into the stats panel per user request.)
 const PANELS: [(&str, &str, f64, f64); 2] = [
     ("overlay_stats", "stats", 280.0, 520.0),
     ("overlay_perks", "perks", 310.0, 340.0),
@@ -48,6 +59,12 @@ fn db_path() -> PathBuf {
     data_dir().join("weapons.json")
 }
 
+/// Append-only diagnostic log for the DIM-search focus-steal path
+/// specifically. This runs in a packaged release build with no visible
+/// console, and every Win32 call along the focus-steal path was previously
+/// swallowed with `let _ =`, so when it silently fails in the field there's
+/// no way to tell *which* step failed without this. Kept intentionally
+/// narrow (just this one feature) rather than a general logging framework.
 fn log_dim(msg: impl AsRef<str>) {
     use std::io::Write;
     let path = data_dir().join("dim-search.log");

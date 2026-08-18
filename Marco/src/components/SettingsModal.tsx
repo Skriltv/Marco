@@ -7,7 +7,7 @@ import { THEMES, type ThemeId, applyTheme, loadTheme, saveTheme } from "../lib/t
 import { tryUnlockExtraFeatures, lockExtraFeatures } from "../lib/extraFeatures";
 import CreditsModal from "./CreditsModal";
 
-const APP_VERSION = "1.0.0"; // keep in sync with src-tauri/tauri.conf.json "version"
+const APP_VERSION = "1.0.1"; // auto-bumped by scripts/bump-version.mjs on every `pnpm tauri build`
 
 const btn = "rounded border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 transition-colors";
 
@@ -43,6 +43,8 @@ type UpdateState =
 
 export default function SettingsModal({ onClose, tabPrefs, onTabPrefsChange, extraFeaturesUnlocked, onExtraFeaturesUnlockedChange }: Props) {
   const [update, setUpdate] = useState<UpdateState>({ kind: "idle" });
+  const [confirmingUninstall, setConfirmingUninstall] = useState(false);
+  const [uninstallError, setUninstallError] = useState("");
   const [bungieApiKey, setBungieApiKey] = useState("");
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [extraFeaturesCode, setExtraFeaturesCode] = useState("");
@@ -151,6 +153,17 @@ export default function SettingsModal({ onClose, tabPrefs, onTabPrefsChange, ext
       setUpdate({ kind: "ready" });
     } catch (e) {
       setUpdate({ kind: "error", message: String(e) });
+    }
+  }
+
+  async function handleUninstall() {
+    setUninstallError("");
+    try {
+      await api.uninstallApp();
+      // App exits itself on success (see uninstall_app in Rust).
+    } catch (e) {
+      setUninstallError(String(e));
+      setConfirmingUninstall(false);
     }
   }
 
@@ -461,6 +474,38 @@ export default function SettingsModal({ onClose, tabPrefs, onTabPrefsChange, ext
             </div>
             {update.kind !== "idle" && (
               <p className="text-sm text-neutral-400">{updateStatusText()}</p>
+            )}
+
+            <div className="mt-1 flex items-center justify-between">
+              <p className="text-sm text-neutral-400">
+                {confirmingUninstall ? "Uninstall Marco? This closes the app and opens the uninstaller." : "Remove Marco from this computer."}
+              </p>
+              {confirmingUninstall ? (
+                <div className="flex gap-2">
+                  <button
+                    className={btn}
+                    onClick={() => setConfirmingUninstall(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className={btn + " border-red-800 bg-red-900/40 hover:bg-red-900/70 text-red-200"}
+                    onClick={handleUninstall}
+                  >
+                    Confirm uninstall
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className={btn + " border-red-900/60 text-red-300 hover:bg-red-900/30"}
+                  onClick={() => setConfirmingUninstall(true)}
+                >
+                  Uninstall
+                </button>
+              )}
+            </div>
+            {uninstallError && (
+              <p className="text-sm text-red-400">Couldn't uninstall: {uninstallError}</p>
             )}
           </section>
 

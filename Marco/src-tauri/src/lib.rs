@@ -8,7 +8,7 @@ use commands::{
     HotkeyState, ensure_web_panel, set_web_panel_bounds, show_web_panel, hide_web_panel,
     close_web_panel, delete_profile, continue_signin, start_calibration_overlay, report_calibration_click,
     report_calibration_rect, cancel_calibration, redeem_codes, stop_redeem, RedeemState, open_url,
-    set_web_panel_zoom, export_dim_login, import_dim_login,
+    set_web_panel_zoom, export_dim_login, import_dim_login, uninstall_app,
 };
 use overlay::{
     get_weapon_db, get_community_godroll, show_overlay_panels, hide_overlay,
@@ -82,6 +82,7 @@ pub fn run() {
             set_dim_search_hotkey,
             detect_once, set_detect_hotkey,
             open_url,
+            uninstall_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Marco");

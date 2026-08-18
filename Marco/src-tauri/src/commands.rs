@@ -8,6 +8,10 @@ use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, WebviewUr
 use tauri::webview::WebviewBuilder;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
+/// Lets the frontend interrupt an in-progress `redeem_codes` run (the "Stop"
+/// button). A simple flag checked between codes, rather than an abort
+/// handle, so the current in-flight code always finishes cleanly instead of
+/// being killed mid-submission.
 #[derive(Default)]
 pub struct RedeemState {
     pub cancel: AtomicBool,
@@ -96,6 +100,29 @@ pub struct MacroBinding {
 #[tauri::command]
 pub fn open_url(url: String) -> Result<(), String> {
     opener::open(&url).map_err(|e| format!("{e}"))
+}
+
+/// Launches the uninstaller next to the running exe (`uninstall.exe` for the
+/// NSIS build, `unins000.exe` for the Inno Setup build) and quits Marco.
+#[tauri::command]
+pub fn uninstall_app(app: tauri::AppHandle) -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| format!("{e}"))?;
+    let dir = exe
+        .parent()
+        .ok_or_else(|| "Couldn't resolve app folder".to_string())?;
+
+    let uninstaller = ["uninstall.exe", "Uninstall.exe", "unins000.exe"]
+        .iter()
+        .map(|name| dir.join(name))
+        .find(|p| p.exists())
+        .ok_or_else(|| "Couldn't find an uninstaller next to Marco.exe".to_string())?;
+
+    std::process::Command::new(&uninstaller)
+        .spawn()
+        .map_err(|e| format!("Failed to launch uninstaller: {e}"))?;
+
+    app.exit(0);
+    Ok(())
 }
 
 #[tauri::command]
@@ -421,6 +448,23 @@ pub async fn hide_web_panel(app: AppHandle, label: String) -> Result<(), String>
 pub async fn close_web_panel(app: AppHandle, label: String) -> Result<(), String> {
     if let Some(wv) = app.get_webview(&label) {
         wv.close().map_err(|e| e.to_string())?;
+
+        // `close()` only *requests* the webview tear down -- the platform
+        // event loop removes it from `app`'s webview registry asynchronously
+        // once it actually finishes destroying, which can take a tick or
+        // more. If we return immediately, the caller (RedeemPanel's account
+        // switch effect) turns around and calls `ensure_web_panel` right
+        // away, which sees the label still registered and no-ops -- leaving
+        // the OLD profile's webview (and its already-signed-in session) in
+        // place instead of the new account's isolated one. That's the
+        // "can't sign in on a different account" bug: the panel never
+        // actually switches profiles, and any sign-in you complete gets
+        // written into the wrong profile's cookie jar (or the request hits
+        // Bungie with a session that doesn't match what the page thinks it
+        // has, which is also consistent with the generic "you should
+        // probably include a body" redeem errors). Block here until the
+        // label is genuinely free (or give up after ~2s) so the caller's
+        // subsequent ensure_web_panel is guaranteed to (re)create it fresh.
         for _ in 0..40 {
             if app.get_webview(&label).is_none() {
                 return Ok(());
@@ -433,6 +477,19 @@ pub async fn close_web_panel(app: AppHandle, label: String) -> Result<(), String
 
 #[tauri::command]
 pub fn continue_signin(app: AppHandle, label: String, redeem_url: String) -> Result<(), String> {
+    // Bungie's own sign-in flow lands on an interstitial page of its own
+    // ("You're logged in! Continue to Bungie.net.") that requires that link
+    // to actually be clicked -- that click is what finalizes the session,
+    // not the redirect that got us here. The old nav-listener logic treated
+    // ANY off-redeem-page bungie.net URL as "done signing in" and tore the
+    // whole panel down (close + recreate) immediately, which killed this
+    // page before the click could happen, so the session never finished
+    // establishing and the freshly (re)opened redeem page just asked you to
+    // sign in again. Fix: click the page's own "Continue" link/button in
+    // place if one is visible; only fall back to a plain in-place navigate
+    // to the redeem URL (still no panel teardown, so nothing gets
+    // interrupted and no cookies that were just set get lost) if there's
+    // nothing to click.
     let Some(wv) = app.get_webview(&label) else { return Ok(()) };
     let escaped = redeem_url.replace('\\', "\\\\").replace('\'', "\\'");
     let script = format!(
@@ -468,6 +525,9 @@ pub fn delete_profile(name: String) -> Result<(), String> {
 const DIM_URL: &str = "https://app.destinyitemmanager.com";
 const TRANSFER_LABEL: &str = "dim-transfer";
 
+/// Closes the transient `dim-transfer` webview and blocks until the label is
+/// genuinely free (or gives up after ~2s), same teardown shape as
+/// `close_web_panel`.
 async fn close_transfer_webview(app: &AppHandle) {
     if let Some(wv) = app.get_webview(TRANSFER_LABEL) {
         let _ = wv.close();
@@ -479,6 +539,13 @@ async fn close_transfer_webview(app: &AppHandle) {
         }
     }
 }
+
+/// Opens a hidden 1x1 off-screen webview on the given account `profile`,
+/// pointed at DIM, and waits until it reaches the DIM origin so that profile's
+/// `localStorage` is readable. Marco already runs several webviews on the same
+/// `profiles/<slug>/` data directory at once (dim, godroll, redeem…), so a
+/// transient one here doesn't conflict with the live DIM tab. Caller must
+/// `close_transfer_webview` when finished.
 async fn open_transfer_webview(
     app: &AppHandle,
     profile: Option<String>,
@@ -523,10 +590,16 @@ async fn open_transfer_webview(
         }
     }
 
+    // Origin check timed out — return the webview anyway if it exists; the
+    // localStorage read below will simply report empty/failure if it isn't
+    // usable, rather than hanging.
     app.get_webview(TRANSFER_LABEL)
         .ok_or_else(|| "Could not open the DIM session for that account".to_string())
 }
 
+/// Reads the chosen account's DIM `localStorage` (where DIM keeps its Bungie
+/// login) into a compact copy-paste token. `profile` is the account id, or
+/// `None` for the "Main" (default-session) account.
 #[tauri::command]
 pub async fn export_dim_login(app: AppHandle, profile: Option<String>) -> Result<String, String> {
     let wv = open_transfer_webview(&app, profile).await?;
@@ -575,6 +648,8 @@ pub async fn export_dim_login(app: AppHandle, profile: Option<String>) -> Result
     }
 }
 
+/// Writes a token produced by `export_dim_login` into the chosen account's DIM
+/// `localStorage`. `profile` is the account id, or `None` for "Main".
 #[tauri::command]
 pub async fn import_dim_login(
     app: AppHandle,
@@ -593,6 +668,8 @@ pub async fn import_dim_login(
 
     let wv = open_transfer_webview(&app, profile).await?;
 
+    // Base64 is [A-Za-z0-9+/=] — no backslashes or quotes — but escape anyway
+    // to be safe when embedding in the single-quoted JS string.
     let escaped = payload.replace('\\', "\\\\").replace('\'', "\\'");
     let writer = format!(
         r#"(function() {{
@@ -623,11 +700,14 @@ pub async fn import_dim_login(
         }
     }
 
+    // Let WebView2 flush the localStorage writes to disk before teardown.
     tokio::time::sleep(std::time::Duration::from_millis(400)).await;
     close_transfer_webview(&app).await;
 
     match outcome.as_deref() {
         Some(e) if e.starts_with("ERR:") => Err(format!("Import failed: {}", &e[4..])),
+        // "OK", or no ack captured before teardown — the writes were fired, so
+        // treat a missing ack as best-effort success rather than a hard error.
         _ => Ok(()),
     }
 }
@@ -997,6 +1077,9 @@ async fn submit_code_and_wait(app: &AppHandle, label: &str, code: &str) -> Resul
         .ok_or_else(|| format!("Panel '{}' isn't open — open the Redeem tab first", label))?;
     wv.eval(&build_redeem_script(code)).map_err(|e| e.to_string())?;
 
+    // Worst case in build_redeem_script: ~3s waiting for the submit button to
+    // enable + ~6.5s polling for a result message + a little slack for the
+    // "redeem another code" reset step = comfortably under 12s.
     for _ in 0..50 {
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         let Some(wv) = app.get_webview(label) else { break };
@@ -1023,8 +1106,14 @@ async fn submit_code_and_wait(app: &AppHandle, label: &str, code: &str) -> Resul
 
 #[tauri::command]
 pub async fn redeem_codes(app: AppHandle, label: String, codes: Vec<String>) -> Result<(), String> {
+    // Matches the message build_redeem_script reports when it finds itself
+    // off the redeem page entirely (signed out / session bounce). Once we
+    // see this once, every subsequent code will hit the exact same bounce,
+    // so there's no point silently burning through the rest of the list.
     const SIGNED_OUT_MARK: &str = "not on redeem page";
 
+    // Fresh run — clear any stale cancel request left over from a previous
+    // (already-finished) run before we start checking it below.
     {
         let state = app.state::<RedeemState>();
         state.cancel.store(false, Ordering::Relaxed);
@@ -1088,6 +1177,9 @@ pub async fn redeem_codes(app: AppHandle, label: String, codes: Vec<String>) -> 
     Ok(())
 }
 
+/// Requests that the currently-running `redeem_codes` loop stop after it
+/// finishes whichever code it's mid-submission on — invoked by the red
+/// "Stop" button in the Redeem tab.
 #[tauri::command]
 pub fn stop_redeem(app: AppHandle) -> Result<(), String> {
     let state = app.state::<RedeemState>();

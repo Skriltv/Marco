@@ -6,15 +6,14 @@
 ;                                          without also invoking Tauri's own NSIS bundler
 ;   3. ISCC installer\Marco.iss          <- produces the setup exe
 ;
-; Output lands in installer\output\Marco_<version>_x64-setup.exe, matching the
-; naming Polo and Marshal already use.
+; Output lands in installer\output\Marco_<version>_x64-setup.exe.
 ;
 ; Requires Inno Setup 6+ (https://jrsoftware.org/isinfo.php). If you compile
 ; from the Inno Setup IDE instead of the command line, just open this file
 ; and hit Build > Compile.
 
 #define MyAppName "Marco"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "Marco"
 #define MyAppExeName "marco.exe"
 

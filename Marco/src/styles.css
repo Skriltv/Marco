@@ -5,6 +5,14 @@ body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
 ::-webkit-scrollbar-track { background: var(--color-neutral-900); }
 ::-webkit-scrollbar-thumb { background: var(--color-neutral-700); border-radius: 3px; }
 
+/*
+ * Theming: the whole app is built with Tailwind's neutral-* (backgrounds/
+ * borders/text) and purple-* (accents: active tab, focus rings, primary
+ * buttons) classes. Tailwind v4 compiles those utilities to
+ * `var(--color-neutral-950)` etc. and defines the defaults on :root, so we
+ * can retheme the *entire* app just by overriding those same custom
+ * properties per `[data-theme]` — no need to touch every component.
+ */
 [data-theme="graphite"] {
   --color-neutral-950: #0a0a0a; --color-neutral-900: #171717; --color-neutral-800: #262626;
   --color-neutral-700: #404040; --color-neutral-600: #525252; --color-neutral-500: #737373;

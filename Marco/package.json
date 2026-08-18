@@ -1,14 +1,16 @@
 {
   "name": "marco",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "packageManager": "pnpm@10.33.4",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "version:bump": "node scripts/bump-version.mjs",
+    "release": "node scripts/bump-version.mjs && tauri build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

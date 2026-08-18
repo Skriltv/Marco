@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Marco",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "identifier": "com.marco.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -27,15 +27,15 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": false,
+    "createUpdaterArtifacts": true,
     "targets": ["nsis"],
     "publisher": "Marco",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"]
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU4MUI4MjhCRDJBMUYyQQpSV1FxSHlxOUtMaUJCWXVqRFhSQTd0VFRTNWxQYi9mRUNXSWxFMDc2bTZPK1lKMlRvdGhuZHhBZgo=",
-      "endpoints": ["https://macrohub-updates.onrender.com/latest.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU0RjUyOUIxMjA1NzU1QzkKUldUSlZWY2dzU24xNUIxU3NuMzNTdnEzL3VNL3JnRGhRU0xCVm8wQU5JTHZRdWhRZGxaSWk3Q0MK",
+      "endpoints": ["https://github.com/Skriltv/Marco/releases/latest/download/latest.json"],
       "windows": { "installMode": "passive" }
     }
   }
