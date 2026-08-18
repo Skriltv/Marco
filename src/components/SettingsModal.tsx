@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
-import { check as checkForUpdate } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
 import * as api from "../lib/api";
 import { TAB_LABELS, type TabId, type TabPrefs } from "../lib/tabOrder";
 import { THEMES, type ThemeId, applyTheme, loadTheme, saveTheme } from "../lib/theme";
 import { tryUnlockExtraFeatures, lockExtraFeatures } from "../lib/extraFeatures";
+import type { UpdateState } from "../lib/useUpdater";
 import CreditsModal from "./CreditsModal";
 
-const APP_VERSION = "1.0.1"; // auto-bumped by scripts/bump-version.mjs on every `pnpm tauri build`
+const APP_VERSION = "1.0.0"; // auto-bumped by scripts/bump-version.mjs on every `pnpm tauri build`
 
 const btn = "rounded border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 transition-colors";
 
@@ -30,19 +29,16 @@ interface Props {
   onTabPrefsChange: (prefs: TabPrefs) => void;
   extraFeaturesUnlocked: boolean;
   onExtraFeaturesUnlockedChange: (unlocked: boolean) => void;
+  update: UpdateState;
+  onCheckForUpdates: () => void;
+  onInstallUpdate: () => void;
+  onRestart: () => void;
 }
 
-type UpdateState =
-  | { kind: "idle" }
-  | { kind: "checking" }
-  | { kind: "up-to-date" }
-  | { kind: "available"; version: string }
-  | { kind: "downloading" }
-  | { kind: "ready" }
-  | { kind: "error"; message: string };
-
-export default function SettingsModal({ onClose, tabPrefs, onTabPrefsChange, extraFeaturesUnlocked, onExtraFeaturesUnlockedChange }: Props) {
-  const [update, setUpdate] = useState<UpdateState>({ kind: "idle" });
+export default function SettingsModal({
+  onClose, tabPrefs, onTabPrefsChange, extraFeaturesUnlocked, onExtraFeaturesUnlockedChange,
+  update, onCheckForUpdates, onInstallUpdate, onRestart,
+}: Props) {
   const [confirmingUninstall, setConfirmingUninstall] = useState(false);
   const [uninstallError, setUninstallError] = useState("");
   const [bungieApiKey, setBungieApiKey] = useState("");
@@ -128,32 +124,6 @@ export default function SettingsModal({ onClose, tabPrefs, onTabPrefsChange, ext
     lockExtraFeatures();
     onExtraFeaturesUnlockedChange(false);
     setExtraFeaturesMsg("");
-  }
-
-  async function handleCheckForUpdates() {
-    setUpdate({ kind: "checking" });
-    try {
-      const result = await checkForUpdate();
-      if (!result?.available) {
-        setUpdate({ kind: "up-to-date" });
-        return;
-      }
-      setUpdate({ kind: "available", version: result.version });
-    } catch (e) {
-      setUpdate({ kind: "error", message: String(e) });
-    }
-  }
-
-  async function handleInstallUpdate() {
-    setUpdate({ kind: "downloading" });
-    try {
-      const result = await checkForUpdate();
-      if (!result?.available) { setUpdate({ kind: "up-to-date" }); return; }
-      await result.downloadAndInstall();
-      setUpdate({ kind: "ready" });
-    } catch (e) {
-      setUpdate({ kind: "error", message: String(e) });
-    }
   }
 
   async function handleUninstall() {
@@ -451,14 +421,14 @@ export default function SettingsModal({ onClose, tabPrefs, onTabPrefsChange, ext
               {update.kind === "available" ? (
                 <button
                   className={btn + " border-purple-800 bg-purple-900/40 hover:bg-purple-900/70 text-purple-200"}
-                  onClick={handleInstallUpdate}
+                  onClick={onInstallUpdate}
                 >
                   Download &amp; install v{update.version}
                 </button>
               ) : update.kind === "ready" ? (
                 <button
                   className={btn + " border-purple-800 bg-purple-900/40 hover:bg-purple-900/70 text-purple-200"}
-                  onClick={() => relaunch().catch(() => {})}
+                  onClick={onRestart}
                 >
                   Restart now
                 </button>
@@ -466,7 +436,7 @@ export default function SettingsModal({ onClose, tabPrefs, onTabPrefsChange, ext
                 <button
                   className={btn}
                   disabled={update.kind === "checking" || update.kind === "downloading"}
-                  onClick={handleCheckForUpdates}
+                  onClick={onCheckForUpdates}
                 >
                   {update.kind === "checking" ? "Checking..." : "Check for updates"}
                 </button>

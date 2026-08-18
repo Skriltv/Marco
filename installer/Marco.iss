@@ -13,7 +13,7 @@
 ; and hit Build > Compile.
 
 #define MyAppName "Marco"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.0"
 #define MyAppPublisher "Marco"
 #define MyAppExeName "marco.exe"
 

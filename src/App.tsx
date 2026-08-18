@@ -9,11 +9,14 @@ import RedeemPanel from "./components/RedeemPanel";
 import OverlayPanel from "./components/OverlayPanel";
 import SettingsModal from "./components/SettingsModal";
 import WelcomeModal from "./components/WelcomeModal";
+import UpdateToast from "./components/UpdateToast";
 import { type Account, ACCOUNTS_KEY, ACTIVE_ACCOUNT_KEY, MAIN_ID, loadAccounts, profileForAccount, slugify } from "./lib/accounts";
 import { type TabId, TAB_LABELS, loadTabPrefs, saveTabPrefs, type TabPrefs } from "./lib/tabOrder";
 import { isExtraFeaturesUnlocked } from "./lib/extraFeatures";
+import { useUpdater } from "./lib/useUpdater";
 
 const WELCOME_SEEN_KEY = "marco.welcomeSeen";
+const DISMISSED_UPDATE_KEY = "marco.dismissedUpdateVersion";
 
 // Defined once at module scope (not inside App()) so the array reference is
 // stable across renders — EmbeddedSitePanel only re-syncs its webviews when
@@ -46,6 +49,24 @@ export default function App() {
     localStorage.setItem(WELCOME_SEEN_KEY, "1");
     setShowWelcome(false);
   }
+
+  // Silent check on launch; the bottom-right toast and the Settings > Updates
+  // panel both read from this same state so they stay in sync.
+  const updater = useUpdater(true);
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState(
+    () => localStorage.getItem(DISMISSED_UPDATE_KEY),
+  );
+  const showUpdateToast =
+    updater.state.kind === "downloading" ||
+    updater.state.kind === "ready" ||
+    (updater.state.kind === "available" && updater.state.version !== dismissedUpdateVersion);
+  function dismissUpdateToast() {
+    if (updater.state.kind === "available") {
+      localStorage.setItem(DISMISSED_UPDATE_KEY, updater.state.version);
+      setDismissedUpdateVersion(updater.state.version);
+    }
+  }
+
   // Extra Features (e.g. the DIM login export/import bar) stay hidden until
   // someone enters the unlock code in Settings.
   const [extraFeaturesUnlocked, setExtraFeaturesUnlocked] = useState(isExtraFeaturesUnlocked);
@@ -238,10 +259,23 @@ export default function App() {
           onTabPrefsChange={setTabPrefs}
           extraFeaturesUnlocked={extraFeaturesUnlocked}
           onExtraFeaturesUnlockedChange={setExtraFeaturesUnlocked}
+          update={updater.state}
+          onCheckForUpdates={() => updater.checkForUpdates(false)}
+          onInstallUpdate={updater.installUpdate}
+          onRestart={updater.restart}
         />
       )}
 
       {showWelcome && <WelcomeModal onClose={dismissWelcome} />}
+
+      {showUpdateToast && (
+        <UpdateToast
+          update={updater.state}
+          onInstall={updater.installUpdate}
+          onRestart={updater.restart}
+          onDismiss={dismissUpdateToast}
+        />
+      )}
     </div>
   );
 }
