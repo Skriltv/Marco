@@ -1,11 +1,10 @@
 name: Release
 
-# Push a tag like "v1.0.1" to build Marco and publish it as a GitHub Release,
-# including the signed `latest.json` the in-app updater reads from.
+
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v1.0.1"
   workflow_dispatch:
 
 jobs:
@@ -37,5 +36,5 @@ jobs:
           projectPath: Marco
           tagName: ${{ github.ref_name }}
           releaseName: "Marco ${{ github.ref_name }}"
-          releaseDraft: false
+          releaseDraft: true
           prerelease: false
