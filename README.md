@@ -82,6 +82,6 @@ The output installer lands in `installer/output/Marco_<version>_x64-setup.exe`.
 
 ## Credits
 
-- Aste: For the general idea and features it should have & Implementing the real in time game overlay for perks. 
-- Poofafysh: Built the general structuring for the app and macro feature.
-- Skril: Fully coded and brought the idea to life and cleaned up the design and overlay UI. 
+- [Aste](https://www.youtube.com/@WTKX): For the general idea and features it should have & Implementing the real in time game overlay for perks. 
+- [Poofafysh](https://www.youtube.com/@Poofafysh): Built the general structuring for the app and macro feature.
+- [Skril](https://www.youtube.com/@Skrilttv): Fully coded and brought the idea to life and cleaned up the design and overlay UI. 
