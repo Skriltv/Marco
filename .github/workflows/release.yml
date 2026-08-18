@@ -22,6 +22,7 @@ jobs:
         run: npm install -g pnpm
 
       - name: Install frontend dependencies
+        working-directory: Marco
         run: pnpm install --frozen-lockfile
 
       - uses: dtolnay/rust-toolchain@stable
@@ -33,6 +34,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          projectPath: Marco
           tagName: ${{ github.ref_name }}
           releaseName: "Marco ${{ github.ref_name }}"
           releaseDraft: false
