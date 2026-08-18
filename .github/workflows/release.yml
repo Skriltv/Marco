@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v1.0.2"
+      - "v*.*.*"
   workflow_dispatch:
 
 jobs:
@@ -21,6 +21,10 @@ jobs:
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Set version from tag
+        shell: bash
+        run: node scripts/set-version.mjs "${{ github.ref_name }}"
 
       - uses: dtolnay/rust-toolchain@stable
 

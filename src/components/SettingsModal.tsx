@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import * as api from "../lib/api";
 import { TAB_LABELS, type TabId, type TabPrefs } from "../lib/tabOrder";
 import { THEMES, type ThemeId, applyTheme, loadTheme, saveTheme } from "../lib/theme";
 import { tryUnlockExtraFeatures, lockExtraFeatures } from "../lib/extraFeatures";
 import type { UpdateState } from "../lib/useUpdater";
 import CreditsModal from "./CreditsModal";
-
-const APP_VERSION = "1.0.0"; // auto-bumped by scripts/bump-version.mjs on every `pnpm tauri build`
 
 const btn = "rounded border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 transition-colors";
 
@@ -50,6 +49,11 @@ export default function SettingsModal({
   const [dimSearchStatus, setDimSearchStatus] = useState("");
   const [theme, setTheme] = useState<ThemeId>(loadTheme);
   const [creditsOpen, setCreditsOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState("");
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => {});
+  }, []);
 
   function chooseTheme(id: ThemeId) {
     setTheme(id);
@@ -416,7 +420,7 @@ export default function SettingsModal({
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-neutral-100">Updates</h3>
-                <p className="mt-0.5 text-sm text-neutral-400">Marco v{APP_VERSION}</p>
+                <p className="mt-0.5 text-sm text-neutral-400">Marco v{appVersion || "…"}</p>
               </div>
               {update.kind === "available" ? (
                 <button
