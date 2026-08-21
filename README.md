@@ -36,3 +36,9 @@ Marco bundles six tools behind one tab bar: an AHK macro manager, a native loado
 - All rights reserved.
 
 --- 
+
+## Credit
+
+- Aste - Made Overlay/OCR calibration
+- Skril - Fully Built the program
+- Poofafysh - Provided the base and macro page
